@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="surface" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#16233d" />
+      <stop offset="1" stop-color="#0a1120" />
+    </linearGradient>
+    <linearGradient id="glyph" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#7db2ff" />
+      <stop offset="1" stop-color="#3d7dff" />
+    </linearGradient>
+  </defs>
+
+  <rect x="44" y="44" width="936" height="936" rx="220" fill="url(#surface)" />
+  <rect
+    x="44.5"
+    y="44.5"
+    width="935"
+    height="935"
+    rx="220"
+    fill="none"
+    stroke="#4d8dff"
+    stroke-opacity="0.22"
+    stroke-width="3"
+  />
+
+  <circle
+    cx="512"
+    cy="512"
+    r="322"
+    fill="none"
+    stroke="#4d8dff"
+    stroke-opacity="0.3"
+    stroke-width="34"
+    stroke-linecap="round"
+    stroke-dasharray="1420 600"
+    transform="rotate(-58 512 512)"
+  />
+
+  <path
+    d="M320 664V376l192 154 192-154v288"
+    fill="none"
+    stroke="url(#glyph)"
+    stroke-width="62"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

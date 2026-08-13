@@ -1,0 +1,10 @@
+node_modules/
+dist/
+release/
+
+# Build-time payloads, fetched per platform by scripts/prepare-*.mjs
+resources/runtime/
+resources/dsh/
+
+.DS_Store
+*.log

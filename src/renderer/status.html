@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:"
+    />
+    <title>DeepSeek Harness</title>
+    <link rel="stylesheet" href="status.css" />
+  </head>
+  <body>
+    <main class="stage" data-phase="starting">
+      <section class="card">
+        <div class="mark" aria-hidden="true">
+          <svg viewBox="0 0 48 48" role="presentation">
+            <circle class="mark-ring" cx="24" cy="24" r="19" />
+            <path class="mark-glyph" d="M15 30V18l9 7 9-7v12" />
+          </svg>
+        </div>
+
+        <h1 class="title">DeepSeek Harness</h1>
+        <p class="status" id="status">Starting the Harness backend…</p>
+
+        <div class="track" id="track"><span class="track-fill"></span></div>
+
+        <p class="hint" id="hint" hidden></p>
+
+        <div class="actions" id="actions" hidden>
+          <button class="button button-primary" id="retry" type="button">Restart backend</button>
+          <button class="button" id="logs" type="button">Open logs</button>
+          <button class="button" id="copy" type="button">Copy diagnostics</button>
+        </div>
+
+        <details class="log" id="log" hidden>
+          <summary>Backend output</summary>
+          <pre id="log-body"></pre>
+        </details>
+      </section>
+
+      <footer class="footer" id="footer"></footer>
+    </main>
+    <script src="status.js"></script>
+  </body>
+</html>

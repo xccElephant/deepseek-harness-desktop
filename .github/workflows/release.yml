@@ -1,0 +1,91 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Attach the installers to a GitHub release
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      # One platform failing should not hide whether the others are shippable.
+      fail-fast: false
+      matrix:
+        include:
+          - label: macOS (Apple Silicon)
+            os: macos-14
+          - label: macOS (Intel)
+            os: macos-13
+          - label: Windows x64
+            os: windows-latest
+          - label: Linux x64
+            os: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # The Harness's native modules are compiled here, so this must be the same
+      # Node major as the runtime the installer bundles.
+      - name: Read the pinned Node version
+        id: pins
+        shell: bash
+        run: echo "node=$(node -p "require('./package.json').dshDesktop.nodeVersion")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ steps.pins.outputs.node }}
+
+      - name: Install shell dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Prepare the bundled payloads
+        run: npm run prepare:payload
+
+      - name: Build installers
+        run: npm run dist -- --publish never
+        env:
+          # Unsigned builds are deliberate for now; see the README's install notes.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.os }}
+          path: |
+            release/*.dmg
+            release/*.exe
+            release/*.AppImage
+            release/*.deb
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Attach installers to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: artifacts/*

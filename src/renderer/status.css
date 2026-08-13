@@ -1,0 +1,257 @@
+:root {
+  --surface: #0d1117;
+  --surface-raised: #151b23;
+  --border: #242c38;
+  --text: #e7edf5;
+  --text-muted: #8b98aa;
+  --accent: #4d8dff;
+  --danger: #ff6b6b;
+  color-scheme: dark light;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --surface: #f6f7f9;
+    --surface-raised: #ffffff;
+    --border: #e2e6ec;
+    --text: #14181f;
+    --text-muted: #5d6875;
+    --accent: #2563eb;
+    --danger: #c2410c;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* An explicit `display` on a flex row outranks the user-agent rule for
+   `[hidden]`, so the attribute needs to win here for it to mean anything. */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--surface);
+  color: var(--text);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', Inter, Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+.stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 32px;
+  overflow: hidden;
+}
+
+.stage::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  left: 50%;
+  width: 720px;
+  height: 720px;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 18%, transparent), transparent 62%);
+  pointer-events: none;
+}
+
+.card {
+  position: relative;
+  width: min(520px, 100%);
+  padding: 36px 36px 30px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  text-align: center;
+  backdrop-filter: blur(12px);
+}
+
+.mark {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 18px;
+}
+
+.mark svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mark-ring {
+  opacity: 0.32;
+  stroke-dasharray: 30 90;
+  transform-origin: center;
+  animation: spin 2.4s linear infinite;
+}
+
+.title {
+  margin: 0 0 6px;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.status {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.track {
+  position: relative;
+  height: 3px;
+  margin: 22px auto 0;
+  overflow: hidden;
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.track-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 38%;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: sweep 1.5s ease-in-out infinite;
+}
+
+.hint {
+  margin: 16px 0 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+
+.button {
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.button:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.button:active {
+  transform: translateY(0.5px);
+}
+
+.button-primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
+}
+
+.button-primary:hover {
+  background: color-mix(in srgb, var(--accent) 86%, #000);
+}
+
+.log {
+  margin-top: 20px;
+  text-align: left;
+}
+
+.log summary {
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.log pre {
+  max-height: 190px;
+  margin: 10px 0 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 70%, #000 6%);
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+.footer {
+  margin-top: 18px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.stage[data-phase='failed'] .mark svg {
+  stroke: var(--danger);
+}
+
+.stage[data-phase='failed'] .mark-ring {
+  animation: none;
+  stroke-dasharray: none;
+  opacity: 0.4;
+}
+
+.stage[data-phase='failed'] .track {
+  display: none;
+}
+
+.stage[data-phase='failed'] .status {
+  color: var(--text);
+  font-size: 14px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mark-ring,
+  .track-fill {
+    animation: none;
+  }
+}

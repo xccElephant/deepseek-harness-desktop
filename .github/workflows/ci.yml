@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    name: Typecheck and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Read the pinned Node version
+        id: pins
+        run: echo "node=$(node -p "require('./package.json').dshDesktop.nodeVersion")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ steps.pins.outputs.node }}
+
+      - run: npm ci
+      - run: npm run typecheck
+
+      # Builds the shell only. The payloads are a release concern: fetching a
+      # Node runtime and compiling the Harness's native modules on every PR would
+      # cost minutes and prove nothing about the code under review.
+      - run: npm run build

@@ -1,0 +1,67 @@
+appId: io.github.xccelephant.deepseek-harness-desktop
+productName: DeepSeek Harness Desktop
+copyright: Copyright (c) 2026 xccElephant
+
+directories:
+  output: release
+  buildResources: build
+
+# The shell itself is small; everything heavy is a payload below.
+files:
+  - dist/**/*
+  - package.json
+  - LICENSE
+  - NOTICE.md
+
+# The backend must exist as real files on disk: it is spawned as a process and
+# loads native modules, neither of which works from inside an asar archive.
+# The Node runtime and the Harness payload are copied into Contents/Resources by
+# scripts/after-pack.mjs, which also fails the build when either is missing.
+# They are not `extraResources` because electron-builder skips `node_modules`
+# there, and the Harness needs that exact directory name to resolve its packages.
+afterPack: scripts/after-pack.mjs
+
+asar: true
+
+# The payload is installed by scripts/prepare-dsh.mjs against the pinned Node
+# major, so electron-builder must not rebuild anything against Electron's ABI.
+npmRebuild: false
+
+# Every target omits `arch` on purpose: the bundled Node binary and the Harness's
+# native modules are single-architecture, so each installer is built on a runner
+# of its own platform and architecture and inherits that host's arch.
+mac:
+  category: public.app-category.developer-tools
+  icon: build/icon.png
+  target: [dmg]
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    NSHumanReadableCopyright: Copyright (c) 2026 xccElephant
+
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+win:
+  icon: build/icon.png
+  target: [nsis]
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-${version}-${arch}-setup.${ext}
+
+linux:
+  icon: build/icon.png
+  category: Development
+  synopsis: Desktop shell for the DeepSeek Harness agent runtime
+  target: [AppImage, deb]
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+publish:
+  provider: github
+  owner: xccElephant
+  repo: deepseek-harness-desktop

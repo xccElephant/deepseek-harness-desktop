@@ -1,0 +1,48 @@
+{
+  "name": "deepseek-harness-desktop",
+  "productName": "DeepSeek Harness Desktop",
+  "version": "0.1.0",
+  "description": "Unofficial desktop application for DeepSeek Harness (dsh)",
+  "license": "MIT",
+  "author": {
+    "name": "xccElephant"
+  },
+  "homepage": "https://github.com/xccElephant/deepseek-harness-desktop",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xccElephant/deepseek-harness-desktop.git"
+  },
+  "main": "dist/main/index.js",
+  "private": true,
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "dshDesktop": {
+    "dshVersion": "0.1.0-rc.6",
+    "nodeVersion": "24.19.0"
+  },
+  "scripts": {
+    "prepare:runtime": "node scripts/fetch-node-runtime.mjs",
+    "prepare:dsh": "node scripts/prepare-dsh.mjs",
+    "prepare:payload": "npm run prepare:runtime && npm run prepare:dsh",
+    "build:ts": "tsc -p tsconfig.json",
+    "build:preload": "node scripts/build-preload.mjs",
+    "build:assets": "node scripts/copy-renderer.mjs",
+    "build": "npm run build:ts && npm run build:preload && npm run build:assets",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "npm run build && electron .",
+    "dev": "npm run build && electron . --dsh-desktop-dev",
+    "icon": "node scripts/make-icon.mjs",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "clean": "node scripts/clean.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "esbuild": "^0.28.2",
+    "electron": "^43.4.0",
+    "electron-builder": "^26.15.3",
+    "sharp": "^0.35.3",
+    "typescript": "^6.0.3"
+  }
+}
