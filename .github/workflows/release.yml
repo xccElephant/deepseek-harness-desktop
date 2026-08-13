@@ -25,8 +25,9 @@ jobs:
         include:
           - label: macOS (Apple Silicon)
             os: macos-14
+          # The last Intel image Actions offers; x86_64 support ends in 2027.
           - label: macOS (Intel)
-            os: macos-13
+            os: macos-15-intel
           - label: Windows x64
             os: windows-latest
           - label: Linux x64
@@ -58,7 +59,8 @@ jobs:
       - name: Build installers
         run: npm run dist -- --publish never
         env:
-          # Unsigned builds are deliberate for now; see the README's install notes.
+          # No developer certificate yet, so macOS falls back to the ad-hoc identity
+          # configured in electron-builder.yml; see the README's install notes.
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - uses: actions/upload-artifact@v4

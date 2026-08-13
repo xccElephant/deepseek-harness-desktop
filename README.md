@@ -47,14 +47,18 @@ Download an installer from [Releases](https://github.com/xccElephant/deepseek-ha
 | Windows x64 | `…-setup.exe` |
 | Linux x64 | `…-x86_64.AppImage` or `…-amd64.deb` |
 
-Builds are **not code-signed**, so the OS will warn on first launch:
+Builds carry no developer certificate, so the OS will warn on first launch:
 
-- **macOS** — the app is blocked as being from an unidentified developer. Either
-  right-click the app and choose *Open*, or clear the quarantine flag:
+- **macOS** — the app is ad-hoc signed but not notarized, so macOS refuses to open
+  it until you clear the download quarantine. Copy it to *Applications* first, then
+  either allow it under *System Settings → Privacy & Security → Open Anyway*, or run:
 
   ```sh
   xattr -dr com.apple.quarantine "/Applications/DeepSeek Harness Desktop.app"
   ```
+
+  Do this before the first launch attempt; macOS caches its verdict, so clearing the
+  flag afterwards may require a fresh copy of the app.
 
 - **Windows** — SmartScreen shows *Windows protected your PC*. Choose *More
   info* → *Run anyway*.
@@ -160,7 +164,8 @@ when the server is listening.
 
 ## Limitations
 
-- **No code signing or notarization**, hence the first-launch warnings above.
+- **No developer certificate or notarization** (macOS builds are only ad-hoc
+  signed), hence the first-launch warnings above.
 - **No auto-update.** Help → Desktop Releases opens the releases page.
 - **Upstream is a developer preview.** Breaking changes land often; a bumped
   `dshVersion` deserves a smoke test before release.

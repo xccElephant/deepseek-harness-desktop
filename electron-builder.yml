@@ -36,6 +36,11 @@ mac:
   target: [dmg]
   hardenedRuntime: true
   gatekeeperAssess: false
+  # Ad-hoc signing until the project has a Developer ID. Without it the bundle
+  # keeps the raw Electron linker signature, which no longer covers the resources
+  # we copy in, and macOS reports a downloaded build as damaged instead of merely
+  # unidentified — a state the user cannot get past with "Open Anyway".
+  identity: '-'
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:

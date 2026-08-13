@@ -9,7 +9,7 @@
  * true at once.
  */
 
-import { cpSync, existsSync, readdirSync } from 'node:fs'
+import { cpSync, existsSync, readdirSync, readlinkSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -27,7 +27,18 @@ export default async function afterPack(context) {
       )
     }
     const to = path.join(resourcesDir, payload)
-    cpSync(from, to, { recursive: true, force: true, dereference: true })
+    // npm's `node_modules/.bin` entries are relative symlinks. Copying them
+    // verbatim keeps them that way; resolving them instead rewrites each one to
+    // an absolute path on the build machine, which both dangles on the user's
+    // disk and makes codesign reject the bundle.
+    cpSync(from, to, { recursive: true, force: true, verbatimSymlinks: true })
+    const escaped = symlinksEscaping(to)
+    if (escaped.length > 0) {
+      throw new Error(
+        `payload ${payload} has symlinks pointing outside the bundle, which codesign rejects:\n` +
+          escaped.map((entry) => `  ${entry}`).join('\n'),
+      )
+    }
     console.log(`  • payload copied  ${payload} -> ${path.relative(context.appOutDir, to)}`)
   }
 
@@ -47,6 +58,26 @@ export default async function afterPack(context) {
   if (!runtimeEntries.some((name) => name === 'node' || name === 'node.exe')) {
     throw new Error('packaged app has no bundled Node binary')
   }
+}
+
+/** Lists symlinks under `root` whose target resolves outside of `root`. */
+function symlinksEscaping(root) {
+  const offenders = []
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const current = path.join(dir, entry.name)
+      if (entry.isDirectory()) {
+        walk(current)
+      } else if (entry.isSymbolicLink()) {
+        const target = path.resolve(path.dirname(current), readlinkSync(current))
+        if (path.relative(root, target).startsWith('..')) {
+          offenders.push(`${path.relative(root, current)} -> ${readlinkSync(current)}`)
+        }
+      }
+    }
+  }
+  walk(root)
+  return offenders
 }
 
 function resolveResourcesDir(context) {
