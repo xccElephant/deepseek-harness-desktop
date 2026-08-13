@@ -18,6 +18,10 @@ jobs:
     name: ${{ matrix.label }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    env:
+      # No developer certificate yet, so macOS falls back to the ad-hoc identity
+      # configured in electron-builder.yml; see the README's install notes.
+      CSC_IDENTITY_AUTO_DISCOVERY: false
     strategy:
       # One platform failing should not hide whether the others are shippable.
       fail-fast: false
@@ -56,12 +60,18 @@ jobs:
       - name: Prepare the bundled payloads
         run: npm run prepare:payload
 
+      # Signing and the DMG step touch every file in the Harness payload, roughly
+      # 33k of them, while the macOS runners allow only 256 open descriptors.
       - name: Build installers
+        if: runner.os == 'macOS'
+        run: |
+          ulimit -n 65536 || ulimit -n 10240
+          echo "descriptor limit: $(ulimit -n)"
+          npm run dist -- --publish never
+
+      - name: Build installers
+        if: runner.os != 'macOS'
         run: npm run dist -- --publish never
-        env:
-          # No developer certificate yet, so macOS falls back to the ad-hoc identity
-          # configured in electron-builder.yml; see the README's install notes.
-          CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - uses: actions/upload-artifact@v4
         with:
