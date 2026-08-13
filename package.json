@@ -5,7 +5,8 @@
   "description": "Unofficial desktop application for DeepSeek Harness (dsh)",
   "license": "MIT",
   "author": {
-    "name": "xccElephant"
+    "name": "xccElephant",
+    "email": "xccElephant@users.noreply.github.com"
   },
   "homepage": "https://github.com/xccElephant/deepseek-harness-desktop",
   "repository": {

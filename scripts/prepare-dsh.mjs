@@ -38,9 +38,11 @@ writeFileSync(
 )
 
 log(`installing @deepseek-ai/dsh@${wanted} (this compiles native modules and takes a few minutes)`)
+const npm = npmInvocation()
 const install = spawnSync(
-  process.platform === 'win32' ? 'npm.cmd' : 'npm',
+  npm.command,
   [
+    ...npm.prefixArgs,
     'install',
     `@deepseek-ai/dsh@${wanted}`,
     '--omit=dev',
@@ -50,11 +52,28 @@ const install = spawnSync(
   ],
   { cwd: root, stdio: 'inherit' },
 )
-if (install.status !== 0) fail('npm install of the harness payload failed')
+if (install.error) fail(`could not run npm (${npm.command}): ${install.error.message}`)
+if (install.status !== 0) fail(`npm install of the harness payload exited with ${install.status}`)
 
 const entry = path.join(root, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
 if (!existsSync(entry)) fail(`installed payload has no CLI entry at ${entry}`)
 log(`harness payload ready: ${entry}`)
+
+/**
+ * Node refuses to spawn `.cmd` shims without a shell, so on Windows we drive
+ * npm's own JS entry point with the current interpreter instead.
+ */
+function npmInvocation() {
+  const execpath = process.env.npm_execpath
+  if (execpath?.endsWith('.js') && existsSync(execpath)) {
+    return { command: process.execPath, prefixArgs: [execpath] }
+  }
+  if (process.platform !== 'win32') return { command: 'npm', prefixArgs: [] }
+
+  const cli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js')
+  if (existsSync(cli)) return { command: process.execPath, prefixArgs: [cli] }
+  fail('could not locate npm-cli.js next to the Node runtime; run this script through `npm run`')
+}
 
 function installedVersion() {
   const manifest = path.join(root, 'node_modules', '@deepseek-ai', 'dsh', 'package.json')

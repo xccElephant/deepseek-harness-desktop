@@ -9,8 +9,8 @@ import { Backend } from './backend'
 import { registerIpc } from './ipc'
 import { initLogger, logError, logInfo, logWarn } from './logger'
 import { installMenu } from './menu'
-import { flushSettings, settings, updateSettings } from './settings'
-import { resolveShellPathAsync } from './shell-path'
+import { flushSettings, settings } from './settings'
+import { refreshSearchPath } from './shell-path'
 import {
   allWindows,
   beginShutdown,
@@ -118,20 +118,12 @@ function main(): void {
   })
 }
 
-/**
- * Re-read the login shell's `PATH` after the window is up. The backend already
- * started with the cached value; this only decides what the next launch — and
- * the next backend restart — will see.
- */
+/** Keep the cached `PATH` current, well after the window has painted. */
 function refreshShellPathCache(): void {
-  setTimeout(() => {
-    void resolveShellPathAsync().then(
-      (resolved) => {
-        if (resolved !== settings().shellPath) updateSettings({ shellPath: resolved })
-      },
-      (error: unknown) => {
-        logWarn(`could not refresh the cached PATH: ${String(error)}`)
-      },
-    )
+  const timer = setTimeout(() => {
+    void refreshSearchPath().catch((error: unknown) => {
+      logWarn(`could not refresh the cached PATH: ${String(error)}`)
+    })
   }, 2_000)
+  timer.unref()
 }

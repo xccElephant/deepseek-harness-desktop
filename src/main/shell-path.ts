@@ -10,16 +10,38 @@
 import { execFile, spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { logInfo, logWarn } from './logger'
+import { settings, updateSettings } from './settings'
 
 const SENTINEL = '__DSH_DESKTOP_PATH__'
 const PROBE_TIMEOUT_MS = 8_000
 
 /**
- * Blocking resolution, used only when no cached value exists yet. Starting an
- * interactive login shell costs seconds, which is why the result is cached
- * across launches and refreshed off the startup path.
+ * The `PATH` to give the backend. Reuses the value cached from a previous launch
+ * so startup never waits on an interactive shell; a restart re-reads the cache,
+ * which {@link refreshSearchPath} keeps current.
  */
-export function resolveShellPath(): string {
+export function searchPath(): string {
+  if (process.platform === 'win32') return process.env.PATH ?? ''
+  const cached = settings().shellPath
+  if (cached !== undefined) return cached
+  const resolved = resolveShellPath()
+  updateSettings({ shellPath: resolved })
+  return resolved
+}
+
+/**
+ * Re-read the login shell's `PATH` off the startup path. This does not touch a
+ * running backend — it decides what the next start sees, so a `PATH` change
+ * takes effect on the next backend restart or app launch.
+ */
+export async function refreshSearchPath(): Promise<void> {
+  if (process.platform === 'win32') return
+  const resolved = await resolveShellPathAsync()
+  if (resolved !== settings().shellPath) updateSettings({ shellPath: resolved })
+}
+
+/** Blocking resolution, used only when no cached value exists yet. */
+function resolveShellPath(): string {
   const inherited = process.env.PATH ?? ''
   if (process.platform === 'win32') return inherited
   const shell = loginShell()
@@ -35,8 +57,7 @@ export function resolveShellPath(): string {
   return finish(fromShell, inherited)
 }
 
-/** Off-startup refresh, so a `PATH` change reaches the next launch. */
-export async function resolveShellPathAsync(): Promise<string> {
+async function resolveShellPathAsync(): Promise<string> {
   const inherited = process.env.PATH ?? ''
   if (process.platform === 'win32') return inherited
   const fromShell = await new Promise<string | null>((resolve) => {

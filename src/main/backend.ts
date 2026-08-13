@@ -21,8 +21,7 @@ import type { BackendState } from '../shared/contract'
 import { dshEntryPoint } from './paths'
 import { logBackend, logError, logInfo, logTail, logWarn } from './logger'
 import { NodeRuntimeError, resolveNodeRuntime, type NodeRuntime } from './node-runtime'
-import { settings } from './settings'
-import { resolveShellPath } from './shell-path'
+import { searchPath } from './shell-path'
 
 /** How long the backend gets to print its URL line before we call it stuck. */
 const READY_TIMEOUT_MS = 120_000
@@ -87,7 +86,7 @@ export class Backend extends EventEmitter {
       return
     }
 
-    this.searchPath ??= settings().shellPath ?? resolveShellPath()
+    this.searchPath ??= searchPath()
     let runtime: NodeRuntime
     try {
       runtime = resolveNodeRuntime(this.searchPath)
@@ -152,9 +151,14 @@ export class Backend extends EventEmitter {
     })
   }
 
-  /** Deliberate restart, e.g. from the menu. Resets the crash budget. */
+  /**
+   * Deliberate restart, e.g. from the menu. Resets the crash budget and drops the
+   * resolved environment, so a restart is also how a changed `PATH` or a newly
+   * installed toolchain reaches the agent.
+   */
   async restart(): Promise<void> {
     this.restarts = 0
+    this.searchPath = null
     this.publish({ phase: 'restarting', message: 'Restarting the Harness backend…' })
     await this.stop()
     this.start()
