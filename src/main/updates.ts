@@ -11,7 +11,9 @@ import { logInfo, logWarn } from './logger'
 import { settings, updateSettings } from './settings'
 import { focusedWindow, openExternally } from './windows'
 
-const RELEASES_PAGE = 'https://github.com/xccElephant/deepseek-harness-desktop/releases/latest'
+const REPO = 'xccElephant/deepseek-harness-desktop'
+const LATEST_API = `https://api.github.com/repos/${REPO}/releases/latest`
+const RELEASES_PAGE = `https://github.com/${REPO}/releases/latest`
 const TIMEOUT_MS = 8_000
 
 /** How long after startup the background check runs, to stay out of its way. */
@@ -77,19 +79,36 @@ async function offer(release: Release, current: string, silent: boolean): Promis
 }
 
 /**
- * Reads the tag that `/releases/latest` redirects to, rather than asking the
- * REST API. The API allows 60 unauthenticated calls an hour per address, which a
- * user behind a shared or carrier-grade NAT can find already spent; this path
- * has no such budget and needs no credentials.
+ * Two ways to ask, because neither is sufficient alone.
+ *
+ * The REST API is authoritative but allows 60 unauthenticated calls an hour per
+ * address, which a user behind a shared or carrier-grade NAT can find already
+ * spent. The web redirect has no such budget, but is served from a cache that
+ * was observed lagging minutes behind a publish. So: ask the API, and fall back
+ * to the redirect only when it will not answer.
  */
 export async function latestRelease(): Promise<Release | null> {
-  const response = await fetch(RELEASES_PAGE, {
-    method: 'HEAD',
-    redirect: 'manual',
-    headers: { 'user-agent': `${app.getName()}/${app.getVersion()}` },
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  })
+  try {
+    return await latestFromApi()
+  } catch (error) {
+    logInfo(`the releases API did not answer (${String(error)}); reading the redirect instead`)
+    return await latestFromRedirect()
+  }
+}
 
+async function latestFromApi(): Promise<Release | null> {
+  const response = await get(LATEST_API, { accept: 'application/vnd.github+json' })
+  // 404 is a real answer: the repository has no published release.
+  if (response.status === 404) return null
+  if (!response.ok) throw new Error(`GitHub answered ${response.status}`)
+
+  const tag: unknown = ((await response.json()) as { tag_name?: unknown }).tag_name
+  if (typeof tag !== 'string' || tag === '') throw new Error('the release carried no tag')
+  return release(tag)
+}
+
+async function latestFromRedirect(): Promise<Release | null> {
+  const response = await get(RELEASES_PAGE, {}, 'manual')
   const location = response.headers.get('location')
   if (location === null) {
     // A repository with no published release answers 200 and stays put.
@@ -99,7 +118,31 @@ export async function latestRelease(): Promise<Release | null> {
 
   const tag = /\/releases\/tag\/(.+)$/.exec(location)?.[1]
   if (tag === undefined || tag === '') return null
+  return release(tag)
+}
+
+function release(tag: string): Release {
   return { version: decodeURIComponent(tag).replace(/^v/, ''), url: RELEASES_PAGE }
+}
+
+function get(
+  url: string,
+  headers: Record<string, string>,
+  redirect: RequestRedirect = 'follow',
+): Promise<Response> {
+  return fetch(url, {
+    method: redirect === 'manual' ? 'HEAD' : 'GET',
+    redirect,
+    // A stale answer is worse than none here, and one request per launch is not
+    // worth caching.
+    cache: 'no-store',
+    headers: {
+      // GitHub refuses API requests that do not identify themselves.
+      'user-agent': `${app.getName()}/${app.getVersion()}`,
+      ...headers,
+    },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  })
 }
 
 /**

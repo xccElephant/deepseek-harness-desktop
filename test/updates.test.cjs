@@ -34,23 +34,42 @@ dialog.showMessageBox = (...args) => {
   return Promise.resolve({ response: choice, checkboxChecked: false })
 }
 
-/** Answers every request the way GitHub answers `/releases/latest`. */
-function serveTag(tag) {
-  globalThis.fetch = () =>
-    Promise.resolve(
-      new Response(null, {
-        status: 302,
-        headers: { location: `https://github.com/o/r/releases/tag/${tag}` },
-      }),
-    )
+const isApi = (url) => String(url).startsWith('https://api.github.com/')
+
+/** Answers as GitHub does, from whichever of the two sources is asked. */
+function serve({ api, redirect }) {
+  globalThis.fetch = (url, init) => {
+    const answer = isApi(url) ? api : redirect
+    if (answer === undefined) {
+      return Promise.reject(new Error(`unexpected request to ${String(url)}`))
+    }
+    return answer(url, init)
+  }
 }
 
-function serveStatus(status) {
-  globalThis.fetch = () => Promise.resolve(new Response(null, { status }))
+const apiTag = (tag) => () =>
+  Promise.resolve(new Response(JSON.stringify({ tag_name: tag }), { status: 200 }))
+const redirectTag = (tag) => () =>
+  Promise.resolve(
+    new Response(null, {
+      status: 302,
+      headers: { location: `https://github.com/o/r/releases/tag/${tag}` },
+    }),
+  )
+const status = (code) => () => Promise.resolve(new Response(null, { status: code }))
+const offline = () => Promise.reject(new Error('getaddrinfo ENOTFOUND github.com'))
+
+/** The common case: both sources agree. */
+function serveTag(tag) {
+  serve({ api: apiTag(tag), redirect: redirectTag(tag) })
+}
+
+function serveStatus(code) {
+  serve({ api: status(code), redirect: status(code) })
 }
 
 function serveFailure() {
-  globalThis.fetch = () => Promise.reject(new Error('getaddrinfo ENOTFOUND github.com'))
+  serve({ api: offline, redirect: offline })
 }
 
 let failures = 0
@@ -90,9 +109,25 @@ app.whenReady().then(async () => {
 
   // The tag is the version, with the `v` removed.
   serveTag('v2.5.1')
-  check('the redirect target is the version', (await latestRelease())?.version === '2.5.1')
-  serveStatus(200)
+  check('the tag is read as a version', (await latestRelease())?.version === '2.5.1')
+
+  // The API is authoritative, so a disagreement must resolve its way; the
+  // redirect is a cache that has been seen lagging behind a publish.
+  serve({ api: apiTag('v3.0.0'), redirect: redirectTag('v2.0.0') })
+  check('the API wins over the redirect', (await latestRelease())?.version === '3.0.0')
+
+  // Its 60 anonymous calls an hour can be gone before the app ever asks.
+  serve({ api: status(403), redirect: redirectTag('v2.0.0') })
+  check('a throttled API falls back to the redirect', (await latestRelease())?.version === '2.0.0')
+
+  serve({ api: offline, redirect: redirectTag('v2.0.0') })
+  check('an unreachable API falls back too', (await latestRelease())?.version === '2.0.0')
+
+  serve({ api: status(404), redirect: redirectTag('v2.0.0') })
   check('a repository with no release yields nothing', (await latestRelease()) === null)
+
+  serve({ api: status(403), redirect: status(200) })
+  check('no release, seen through the fallback, also yields nothing', (await latestRelease()) === null)
 
   app.getVersion = () => '1.0.0'
 
@@ -159,16 +194,21 @@ app.whenReady().then(async () => {
     shown[0]?.message,
   )
 
-  // The one case that leaves the machine: proves GitHub still redirects
-  // `/releases/latest` to a tag this code can read.
+  // The cases that leave the machine, proving GitHub still answers in a shape
+  // this code can read. Both paths are checked, because the fallback runs only
+  // when the API is down and would otherwise rot unnoticed.
+  const readable = (live) => live !== null && /^\d+\.\d+\.\d+/.test(live.version)
+
   globalThis.fetch = realFetch
   try {
-    const live = await latestRelease()
-    check(
-      'GitHub still redirects to a readable tag',
-      live !== null && /^\d+\.\d+\.\d+/.test(live.version),
-      JSON.stringify(live),
-    )
+    check('GitHub reports a readable latest release', readable(await latestRelease()))
+  } catch (error) {
+    console.log(`skip  GitHub was unreachable: ${String(error)}`)
+  }
+
+  serve({ api: offline, redirect: (url, init) => realFetch(url, init) })
+  try {
+    check('the redirect fallback reads a readable version', readable(await latestRelease()))
   } catch (error) {
     console.log(`skip  GitHub was unreachable: ${String(error)}`)
   }

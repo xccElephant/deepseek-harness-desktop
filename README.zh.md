@@ -146,9 +146,11 @@ macOS x64、Windows x64 与 Linux x64。
 ## 更新
 
 应用启动后会查一次[最新发布](https://github.com/xccElephant/deepseek-harness-desktop/releases/latest)，
-有新版才提示，可以选择"这个版本不再提醒"。菜单 Help → Check for Updates… 可随时手动检查。查询走
-的是 `/releases/latest` 的重定向而非 GitHub API，因此不消耗那 60 次/小时的匿名配额（共享出口 IP
-后面很容易已经被用光）；查不到就静默跳过，不会影响启动。
+有新版才提示，可以选择"这个版本不再提醒"。菜单 Help → Check for Updates… 可随时手动检查。
+
+查询先问 releases API，问不到再退回 `/releases/latest` 的重定向——两者单独都不够用：API 权威，
+但匿名配额是每个 IP 每小时 60 次，共享出口后面很容易已经用光；重定向没有配额，但它走缓存，实测在
+刚发布后的几分钟里会落后于真实的最新版。两条都失败就静默跳过，不会影响启动。
 
 没有自动下载安装：在没有开发者证书的前提下，让应用自己替换自己的二进制，等于把未经校验的下载内容
 直接执行。所以它只负责告诉你，装不装由你点。

@@ -177,10 +177,12 @@ The app checks for a
 shortly after launch and only speaks up when there is one; a prompt can be
 dismissed for that version. Help → Check for Updates… asks on demand.
 
-The check reads the redirect from `/releases/latest` rather than calling the
-GitHub API, so it spends none of the API's 60 anonymous requests an hour — a
-budget that is often already gone behind a shared address. A check that fails is
-logged and forgotten; it never delays startup or interrupts.
+It asks the releases API and falls back to the redirect from `/releases/latest`
+when that will not answer, because neither source is enough alone: the API is
+authoritative but allows 60 anonymous requests an hour per address, a budget
+often already gone behind a shared one, while the redirect has no budget but is
+served from a cache seen lagging minutes behind a publish. A check that fails
+either way is logged and forgotten; it never delays startup or interrupts.
 
 Nothing is downloaded or installed automatically. Without a developer
 certificate, an app that replaced its own binary would be executing an
