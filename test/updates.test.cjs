@@ -7,7 +7,11 @@
  * change in how `/releases/latest` answers; it reports and moves on when the
  * network is unavailable rather than failing the suite.
  *
- * usage: electron test/updates.test.cjs
+ * Run it through `npm test`, which passes `--no-sandbox`: this test loads no web
+ * content, and the `chrome-sandbox` helper inside `node_modules` is not owned by
+ * root on a CI runner, which aborts Electron before it starts.
+ *
+ * usage: npm test
  */
 
 const path = require('node:path')

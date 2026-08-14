@@ -31,7 +31,7 @@
     "build:assets": "node scripts/copy-renderer.mjs",
     "build": "npm run build:ts && npm run build:preload && npm run build:assets",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "npm run build:ts && electron test/updates.test.cjs",
+    "test": "npm run build:ts && electron --no-sandbox test/updates.test.cjs",
     "start": "npm run build && electron .",
     "dev": "npm run build && electron . --dsh-desktop-dev",
     "icon": "node scripts/make-icon.mjs",
