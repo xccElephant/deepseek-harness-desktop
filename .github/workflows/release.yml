@@ -60,13 +60,15 @@ jobs:
       - name: Prepare the bundled payloads
         run: npm run prepare:payload
 
-      # Signing and the DMG step touch every file in the Harness payload, roughly
-      # 33k of them, while the macOS runners allow only 256 open descriptors.
+      # Signing and the DMG step open every file in the payload at once. The
+      # runners start at a 256-descriptor soft limit, and raising only that is not
+      # enough: the kernel's per-process cap overrides it, so lift both.
       - name: Build installers
         if: runner.os == 'macOS'
         run: |
+          sudo sysctl -w kern.maxfilesperproc=131072 || true
           ulimit -n 65536 || ulimit -n 10240
-          echo "descriptor limit: $(ulimit -n)"
+          echo "descriptors: $(ulimit -n) soft, kernel cap $(sysctl -n kern.maxfilesperproc)"
           npm run dist -- --publish never
 
       - name: Build installers

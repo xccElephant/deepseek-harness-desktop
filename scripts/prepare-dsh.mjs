@@ -9,7 +9,7 @@
  */
 
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fail, log, payloadVersions, resourcesDir } from './shared.mjs'
 
@@ -57,7 +57,32 @@ if (install.status !== 0) fail(`npm install of the harness payload exited with $
 
 const entry = path.join(root, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
 if (!existsSync(entry)) fail(`installed payload has no CLI entry at ${entry}`)
+
+const pruned = pruneBuildOnlyFiles(path.join(root, 'node_modules'))
+log(`dropped ${pruned} type declarations and source maps`)
 log(`harness payload ready: ${entry}`)
+
+/**
+ * Deletes files only a compiler or a debugger would read. Beyond the wasted
+ * download, the sheer count matters: signing an app bundle opens every file in
+ * it, and macOS builders run out of descriptors well before 33k of them.
+ *
+ * Source maps only affect how readable a stack trace is, and `.d.ts` files are
+ * never loaded at runtime, so nothing here changes behaviour.
+ */
+function pruneBuildOnlyFiles(dir) {
+  let removed = 0
+  for (const item of readdirSync(dir, { withFileTypes: true })) {
+    const current = path.join(dir, item.name)
+    if (item.isDirectory()) {
+      removed += pruneBuildOnlyFiles(current)
+    } else if (item.isFile() && (item.name.endsWith('.d.ts') || item.name.endsWith('.map'))) {
+      rmSync(current)
+      removed += 1
+    }
+  }
+  return removed
+}
 
 /**
  * Node refuses to spawn `.cmd` shims without a shell, so on Windows we drive
