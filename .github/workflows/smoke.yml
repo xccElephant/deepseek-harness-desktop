@@ -1,0 +1,98 @@
+name: Smoke test installers
+
+# Installs a built installer on a clean runner and asserts the app reaches a
+# usable state: the bundled Node spawns the bundled Harness, the backend reports
+# a URL, and that URL serves the web UI. Structural checks on the package cannot
+# prove any of that.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Release run whose installers should be tested
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  linux:
+    name: Linux x64
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: installer-ubuntu-latest
+          path: installer
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install the package
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ./installer/*.deb xvfb
+          package=$(dpkg-deb -f installer/*.deb Package)
+          echo "installed $package"
+          dpkg -L "$package" | grep -E 'resources/(runtime/node|dsh/node_modules/@deepseek-ai/dsh/lib/bin\.js)$'
+          command -v "$package"
+
+      - name: Launch and wait for the backend
+        run: |
+          package=$(dpkg-deb -f installer/*.deb Package)
+          xvfb-run -a "$package" --disable-gpu >/tmp/stdout.log 2>&1 &
+          node .github/scripts/await-backend.mjs "$HOME/.config/DeepSeek Harness Desktop/logs/desktop.log"
+
+      - name: Diagnostics
+        if: always()
+        run: |
+          echo '--- stdout ---'
+          tail -40 /tmp/stdout.log || true
+          echo '--- desktop.log ---'
+          tail -40 "$HOME/.config/DeepSeek Harness Desktop/logs/desktop.log" || true
+
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: installer-windows-latest
+          path: installer
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # /S is NSIS's silent mode. The installer is per-user, so this lands under
+      # %LOCALAPPDATA%\Programs and needs no elevation.
+      - name: Install the package
+        run: |
+          $setup = (Get-ChildItem installer\*.exe)[0].FullName
+          Start-Process -FilePath $setup -ArgumentList '/S' -Wait
+          $root = Get-ChildItem "$env:LOCALAPPDATA\Programs" -Directory |
+            Where-Object { $_.Name -like '*harness*' } | Select-Object -First 1
+          if (-not $root) { throw 'the installer created no program directory' }
+          $exe = Get-ChildItem $root.FullName -Filter '*.exe' |
+            Where-Object { $_.Name -notlike 'Uninstall*' } | Select-Object -First 1
+          if (-not $exe) { throw "no executable under $($root.FullName)" }
+          Get-Item (Join-Path $root.FullName 'resources\runtime\node.exe')
+          Get-Item (Join-Path $root.FullName 'resources\dsh\node_modules\@deepseek-ai\dsh\lib\bin.js')
+          "exe=$($exe.FullName)" >> $env:GITHUB_ENV
+
+      - name: Launch and wait for the backend
+        run: |
+          Start-Process -FilePath "$env:exe"
+          node .github\scripts\await-backend.mjs "$env:APPDATA\DeepSeek Harness Desktop\logs\desktop.log"
+
+      - name: Diagnostics
+        if: always()
+        run: Get-Content "$env:APPDATA\DeepSeek Harness Desktop\logs\desktop.log" -Tail 40 -ErrorAction SilentlyContinue
