@@ -30,21 +30,25 @@ jobs:
         run: |
           echo "pinned ${{ steps.upstream.outputs.pinned }}, npm latest ${{ steps.upstream.outputs.latest }}"
 
-      # A branch that already exists means an earlier run has handled this
-      # version, whether or not the pull request was merged.
       - name: Look for existing work
         id: branch
         if: steps.upstream.outputs.outdated == 'true'
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH: chore/dsh-${{ steps.upstream.outputs.latest }}
         run: |
-          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
-            echo "$BRANCH already exists; nothing to do"
-            echo "fresh=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "fresh=true" >> "$GITHUB_OUTPUT"
-          fi
           echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
+          # An existing pull request is this version's answer, whether it was
+          # merged or closed on purpose. The branch alone is not: a run that
+          # pushed it and then failed to open the request would otherwise leave
+          # every later run skipping quietly.
+          existing=$(gh pr list --head "$BRANCH" --state all --limit 1 --json number --jq 'length')
+          if [ "$existing" = "0" ]; then
+            echo "fresh=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "a pull request for $BRANCH already exists; nothing to do"
+            echo "fresh=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Open a pull request
         id: pr
@@ -60,7 +64,9 @@ jobs:
           git switch -c "$BRANCH"
           node scripts/check-upstream.mjs --pin > /dev/null
           git commit -qam "chore: bundle the Harness $LATEST"
-          git push -q origin "$BRANCH"
+          # Forced because a previous run may have pushed this branch and then
+          # failed before opening the request.
+          git push -qf origin "$BRANCH"
 
           cat > /tmp/pr-body.md <<EOF
           The Harness moved from \`$PINNED\` to \`$LATEST\` on npm.
