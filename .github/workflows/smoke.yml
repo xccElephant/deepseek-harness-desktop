@@ -5,7 +5,16 @@ name: Smoke test installers
 # a URL, and that URL serves the web UI. Structural checks on the package cannot
 # prove any of that.
 
+# macOS is absent on purpose: a runner has no way to exercise the part that
+# actually breaks there, which is Gatekeeper's verdict on a quarantined download,
+# so those two installers are checked by hand before a release.
 on:
+  workflow_call:
+    inputs:
+      run_id:
+        description: Release run whose installers should be tested
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       run_id:
