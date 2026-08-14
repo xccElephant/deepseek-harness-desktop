@@ -24,6 +24,10 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
 
+      # Electron needs a display even for a test that opens no window.
+      - name: Test
+        run: xvfb-run --auto-servernum npm test
+
       # Builds the shell only. The payloads are a release concern: fetching a
       # Node runtime and compiling the Harness's native modules on every PR would
       # cost minutes and prove nothing about the code under review.

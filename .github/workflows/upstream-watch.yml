@@ -1,0 +1,98 @@
+name: Watch upstream releases
+
+# Opens a pull request when the Harness publishes a new version, and starts a
+# full build of that branch so the decision to merge rests on evidence rather
+# than on hope. Nothing is merged or released automatically: an upstream that is
+# still a developer preview can change the contract this shell depends on.
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  check:
+    name: Check for a newer Harness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Compare the pinned version with npm
+        id: upstream
+        run: node scripts/check-upstream.mjs >> "$GITHUB_OUTPUT"
+
+      - name: Report
+        run: |
+          echo "pinned ${{ steps.upstream.outputs.pinned }}, npm latest ${{ steps.upstream.outputs.latest }}"
+
+      # A branch that already exists means an earlier run has handled this
+      # version, whether or not the pull request was merged.
+      - name: Look for existing work
+        id: branch
+        if: steps.upstream.outputs.outdated == 'true'
+        env:
+          BRANCH: chore/dsh-${{ steps.upstream.outputs.latest }}
+        run: |
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "$BRANCH already exists; nothing to do"
+            echo "fresh=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "fresh=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Open a pull request
+        id: pr
+        if: steps.branch.outputs.fresh == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ steps.branch.outputs.name }}
+          LATEST: ${{ steps.upstream.outputs.latest }}
+          PINNED: ${{ steps.upstream.outputs.pinned }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$BRANCH"
+          node scripts/check-upstream.mjs --pin > /dev/null
+          git commit -qam "chore: bundle the Harness $LATEST"
+          git push -q origin "$BRANCH"
+
+          cat > /tmp/pr-body.md <<EOF
+          The Harness moved from \`$PINNED\` to \`$LATEST\` on npm.
+
+          Merging changes which version the installers bundle. Before merging, check
+          the build started for this branch: it packages all four platforms and then
+          installs and launches the Linux and Windows builds, so a startup regression
+          shows up there.
+
+          Worth a look either way, since upstream is a developer preview:
+
+          - the \`dsh web --port 0\` interface, which this shell spawns
+          - the \`dsh web: <url>\` line it parses to learn the backend is listening
+          - \`node_modules/@deepseek-ai/dsh/lib/bin.js\`, the entry point it runs
+
+          The macOS installers are not covered by the automated check and still need
+          a manual launch before a release.
+          EOF
+
+          url=$(gh pr create --head "$BRANCH" --title "Bundle the Harness $LATEST" --body-file /tmp/pr-body.md)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "opened $url"
+
+      # A pull request raised with GITHUB_TOKEN deliberately starts no checks, so
+      # the build is dispatched explicitly; workflow_dispatch is exempt from that
+      # rule.
+      - name: Build and smoke test the branch
+        if: steps.branch.outputs.fresh == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run release.yml --ref "${{ steps.branch.outputs.name }}"
+          sleep 10
+          gh run list --workflow=release.yml --branch "${{ steps.branch.outputs.name }}" \
+            --limit 1 --json url,status --jq '.[] | "dispatched \(.url) (\(.status))"'

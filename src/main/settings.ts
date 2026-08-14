@@ -30,6 +30,8 @@ export interface DesktopSettings {
    * reuses the last known value and refreshes it in the background.
    */
   shellPath?: string
+  /** A release the user asked not to be reminded about again. */
+  skippedVersion?: string
 }
 
 const DEFAULTS: DesktopSettings = {
@@ -62,6 +64,9 @@ export function settings(): DesktopSettings {
     }
     if (typeof parsed.shellPath === 'string' && parsed.shellPath.trim() !== '') {
       cache.shellPath = parsed.shellPath
+    }
+    if (typeof parsed.skippedVersion === 'string' && parsed.skippedVersion.trim() !== '') {
+      cache.skippedVersion = parsed.skippedVersion
     }
     if (parsed.window) cache.window = normalizeBounds(parsed.window)
   } catch {

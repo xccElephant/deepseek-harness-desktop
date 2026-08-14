@@ -11,6 +11,7 @@ import { initLogger, logError, logInfo, logWarn } from './logger'
 import { installMenu } from './menu'
 import { flushSettings, settings } from './settings'
 import { refreshSearchPath } from './shell-path'
+import { scheduleUpdateCheck } from './updates'
 import {
   allWindows,
   beginShutdown,
@@ -112,6 +113,7 @@ function main(): void {
     backend.start()
     createWindow(backend.currentState())
     refreshShellPathCache()
+    scheduleUpdateCheck()
   }, (error: unknown) => {
     dialog.showErrorBox('DeepSeek Harness Desktop', `The app could not start.\n\n${String(error)}`)
     app.exit(1)

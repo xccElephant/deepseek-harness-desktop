@@ -162,13 +162,38 @@ reaches its UI. Nothing else in this repository tracks upstream internals — th
 only coupling is the CLI invocation (`dsh web --port`) and the one line it prints
 when the server is listening.
 
+Watching for that is automated.
+[upstream-watch](.github/workflows/upstream-watch.yml) compares the pin against
+npm's `latest` daily and, when they differ, opens a pull request touching only
+that field and starts a full build of the branch: all four platforms packaged,
+then the Linux and Windows builds installed and launched. Merging and releasing
+stay manual, because a developer-preview upstream can change either coupling
+above and that kind of regression deserves a human look.
+
+## Updates
+
+The app checks for a
+[newer release](https://github.com/xccElephant/deepseek-harness-desktop/releases/latest)
+shortly after launch and only speaks up when there is one; a prompt can be
+dismissed for that version. Help → Check for Updates… asks on demand.
+
+The check reads the redirect from `/releases/latest` rather than calling the
+GitHub API, so it spends none of the API's 60 anonymous requests an hour — a
+budget that is often already gone behind a shared address. A check that fails is
+logged and forgotten; it never delays startup or interrupts.
+
+Nothing is downloaded or installed automatically. Without a developer
+certificate, an app that replaced its own binary would be executing an
+unverified download, so it reports and leaves the decision to you.
+
 ## Limitations
 
 - **No developer certificate or notarization** (macOS builds are only ad-hoc
   signed), hence the first-launch warnings above.
-- **No auto-update.** Help → Desktop Releases opens the releases page.
-- **Upstream is a developer preview.** Breaking changes land often; a bumped
-  `dshVersion` deserves a smoke test before release.
+- **Updates are announced, not installed.** See [Updates](#updates).
+- **Upstream is a developer preview.** Breaking changes land often. The automated
+  check installs and launches the Linux and Windows builds; the macOS ones still
+  need a manual launch before a release.
 - **One backend per machine.** A second launch focuses the running window rather
   than starting a second backend against the same `~/.dsh`.
 

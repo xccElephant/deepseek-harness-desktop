@@ -9,6 +9,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { Menu, app, clipboard, dialog, shell, type MenuItemConstructorOptions } from 'electron'
 import { logFolder } from './logger'
+import { checkForUpdates } from './updates'
 import { applyZoom, createWindow, focusedWindow, openExternally, reloadHarness } from './windows'
 import type { Backend } from './backend'
 
@@ -170,6 +171,12 @@ function template(backend: Backend): MenuItemConstructorOptions[] {
           },
         },
         { type: 'separator' },
+        {
+          label: 'Check for Updates\u2026',
+          click: () => {
+            void checkForUpdates(false)
+          },
+        },
         {
           label: 'Desktop Releases',
           click: () => {
